@@ -1,1 +1,1 @@
-# node-red-js2subflow
+# nodered-regsitry-core
