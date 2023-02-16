@@ -1,0 +1,148 @@
+[
+	{
+		"id": "5cf05314-91d6-4057-8d3a-8346221bd1f4",
+		"name": "Core",
+		"type": "subflow",
+		"info": "",
+		"category": "Packages",
+		"in": [
+			{
+				"x": 40,
+				"y": 40,
+				"wires": [
+					{
+						"id": "144e936a-27e3-4e67-8c21-fa0321881309"
+					},
+					{
+						"id": "3f0b3a0f-698f-4525-b37b-80536490d121"
+					},
+					{
+						"id": "575f2fa0-c58c-4507-985f-28af93167a18"
+					},
+					{
+						"id": "a3ac119d-e2e6-4ee9-be11-a4881428926b"
+					},
+					{
+						"id": "125eb17e-9dd4-4979-a7a9-b159912ff468"
+					},
+					{
+						"id": "f36fc6ee-394e-4620-914f-3bd0b09da752"
+					},
+					{
+						"id": "4078510b-b1e7-48ae-bb13-a77234d34b7c"
+					}
+				]
+			}
+		],
+		"out": [],
+		"env": [],
+		"meta": {},
+		"color": "#880088",
+		"icon": "node-red/bridge.svg"
+	},
+	{
+		"id": "144e936a-27e3-4e67-8c21-fa0321881309",
+		"name": "Argument",
+		"type": "function",
+		"func": "const $ = global.get(\"registry\");\n\n// Dependencies\n\n// Implementation\nclass Argument {\n    constructor(schema, field = \"Data\") {\n        this.field = field;\n        this.schema = Object.assign({\n            required: false,\n            default: undefined,\n            type: undefined,\n            min: undefined,\n            max: undefined,\n            array: false,\n            arraySizeMin: undefined,\n            arraySizeMax: undefined,\n        }, schema);\n    }\n    eval(data, context = {}) {\n        if (data === undefined && this.schema.default !== undefined) {\n            if (typeof this.schema.default === 'function') {\n                data = this.schema.default(context);\n            }\n            else {\n                data = this.schema.default;\n            }\n        }\n        if ((data === undefined || data === null) && this.schema.required) {\n            throw new Error(`${this.field} is required`);\n        }\n        if (this.schema.array) {\n            if (!Array.isArray(data)) {\n                throw new Error(`${this.field} must be type of array`);\n            }\n            if (this.schema.arraySizeMin && data.length < this.schema.arraySizeMin) {\n                throw new Error(`${this.field} array must have at least ${this.schema.arraySizeMin} element`);\n            }\n            if (this.schema.arraySizeMax && data.length > this.schema.arraySizeMax) {\n                throw new Error(`${this.field} array must have at most ${this.schema.arraySizeMax} element`);\n            }\n            data.forEach((value, index) => {\n                try {\n                    this.validateElement(value);\n                }\n                catch (e) {\n                    throw new Error(`${this.field} array element #${index}: ${e.message}`);\n                }\n            });\n        }\n        else {\n            if (data !== undefined) {\n                this.validateElement(data);\n            }\n        }\n        return data;\n    }\n    validateElement(data) {\n        if (this.schema.type === undefined)\n            return;\n        if (!(typeof this.schema.type === 'string')) {\n            if (!(data instanceof this.schema.type)) {\n                throw new Error(`${this.field} must be instance of ` +\n                    this.schema.type.prototype.constructor.name);\n            }\n        }\n        else\n            switch (this.schema.type) {\n                case 'text':\n                case 'string': {\n                    if (typeof data !== 'string') {\n                        throw new Error(`${this.field} must be type of string`);\n                    }\n                    break;\n                }\n                case 'number': {\n                    if (typeof data !== 'number') {\n                        throw new Error(`${this.field} must be type of number`);\n                    }\n                    if (this.schema.min && data < this.schema.min) {\n                        throw new Error(`${this.field} must be at least ` + this.schema.min);\n                    }\n                    if (this.schema.max && data > this.schema.max) {\n                        throw new Error(`${this.field} must be at most ` + this.schema.max);\n                    }\n                    break;\n                }\n                case 'bool':\n                case 'boolean': {\n                    if (typeof data !== 'boolean') {\n                        throw new Error(`${this.field} must be type of boolean`);\n                    }\n                    break;\n                }\n                default: {\n                    const options = this.schema.type.split('|');\n                    if (!options.find((o) => o === data)) {\n                        throw new Error(`${this.field} (${data}) must be type of string and one of the following options: ${options}`);\n                    }\n                }\n            }\n    }\n}\nclass ArgumentMap {\n    constructor(schema) {\n        for (const key in schema) {\n            if (schema[key] instanceof Argument || schema[key] instanceof ArgumentMap)\n                continue;\n            schema[key] = new Argument(schema[key], key);\n        }\n        this.schema = schema;\n    }\n    eval(data) {\n        if (data === undefined || data === null) {\n            data = {};\n        }\n        const result = {};\n        if (typeof data !== 'object') {\n            throw new Error('Data should be type of map');\n        }\n        Object.getOwnPropertyNames(this.schema).forEach((key) => {\n            if (typeof this.schema[key].schema.default === 'function')\n                return;\n            try {\n                result[key] = this.schema[key].eval(data[key]);\n            }\n            catch (e) {\n                throw new Error(`Field '${key}': ${e.message}`);\n            }\n        });\n        Object.getOwnPropertyNames(this.schema).forEach((key) => {\n            if (typeof this.schema[key].schema.default !== 'function')\n                return;\n            try {\n                result[key] = this.schema[key].eval(data[key], result);\n            }\n            catch (e) {\n                throw new Error(`Field '${key}': ${e.message}`);\n            }\n        });\n        return result;\n    }\n}\n\n\n// Exports\n$.register(\"core.Argument\", Argument);\n$.register(\"core.ArgumentMap\", ArgumentMap);",
+		"x": 200,
+		"y": 80,
+		"z": "5cf05314-91d6-4057-8d3a-8346221bd1f4",
+		"libs": [],
+		"wires": [],
+		"outputs": 0,
+		"noerr": 0,
+		"initialize": "",
+		"finalize": ""
+	},
+	{
+		"id": "3f0b3a0f-698f-4525-b37b-80536490d121",
+		"name": "Base",
+		"type": "function",
+		"func": "const $ = global.get(\"registry\");\n\n// Dependencies\nconst Argument_1 = { Argument: await $.get(\"core.Argument\"), ArgumentMap: await $.get(\"core.ArgumentMap\") };\n\n// Implementation\nclass Base {\n    init(args = {}) {\n        for (const key in this) {\n            if (this[key] instanceof Argument_1.Argument || this[key] instanceof Argument_1.ArgumentMap) {\n                this[key].field = key;\n                this[key] = this[key].eval(args[key], this);\n            }\n        }\n    }\n}\n\n\n// Exports\n$.register(\"core.Base\", Base);",
+		"x": 200,
+		"y": 120,
+		"z": "5cf05314-91d6-4057-8d3a-8346221bd1f4",
+		"libs": [],
+		"wires": [],
+		"outputs": 0,
+		"noerr": 0,
+		"initialize": "",
+		"finalize": ""
+	},
+	{
+		"id": "575f2fa0-c58c-4507-985f-28af93167a18",
+		"name": "Event",
+		"type": "function",
+		"func": "const $ = global.get(\"registry\");\n\n// Dependencies\n\n// Implementation\nclass Event {\n    constructor() {\n        this.subscribers = [];\n    }\n    on(callback) {\n        this.subscribers.push(callback);\n    }\n    off(callback) {\n    }\n    trigger(data) {\n        for (const subscriber of this.subscribers) {\n            subscriber(data);\n        }\n    }\n}\n\n\n// Exports\n$.register(\"core.Event\", Event);",
+		"x": 200,
+		"y": 160,
+		"z": "5cf05314-91d6-4057-8d3a-8346221bd1f4",
+		"libs": [],
+		"wires": [],
+		"outputs": 0,
+		"noerr": 0,
+		"initialize": "",
+		"finalize": ""
+	},
+	{
+		"id": "a3ac119d-e2e6-4ee9-be11-a4881428926b",
+		"name": "Node",
+		"type": "function",
+		"func": "const $ = global.get(\"registry\");\n\n// Dependencies\nconst Base_1 = { Base: await $.get(\"core.Base\") };\nconst Argument_1 = { Argument: await $.get(\"core.Argument\"), ArgumentMap: await $.get(\"core.ArgumentMap\") };\nconst Status_1 = { Status: await $.get(\"core.Status\") };\n\n// Implementation\nclass Node extends Base_1.Base {\n    constructor() {\n        super(...arguments);\n        this.status = new Status_1.Status();\n        this.node = new Argument_1.Argument({ required: true });\n        this.debugMode = new Argument_1.Argument({\n            required: true,\n            default: false,\n        });\n    }\n    init(args) {\n        super.init(args);\n        this.node.on('close', () => this.destructor());\n        this.status.changed.on((status) => this.node.status(status));\n    }\n    debug(object) {\n        if (this.debugMode)\n            this.node.warn({ object });\n    }\n    warning(object) {\n        this.node.warn({ object });\n    }\n    error(object) {\n        this.node.error({ object });\n    }\n    destructor() { }\n}\n\n\n// Exports\n$.register(\"core.Node\", Node);",
+		"x": 200,
+		"y": 200,
+		"z": "5cf05314-91d6-4057-8d3a-8346221bd1f4",
+		"libs": [],
+		"wires": [],
+		"outputs": 0,
+		"noerr": 0,
+		"initialize": "",
+		"finalize": ""
+	},
+	{
+		"id": "125eb17e-9dd4-4979-a7a9-b159912ff468",
+		"name": "Property",
+		"type": "function",
+		"func": "const $ = global.get(\"registry\");\n\n// Dependencies\nconst Event_1 = { Event: await $.get(\"core.Event\") };\nconst Status_1 = { Status: await $.get(\"core.Status\") };\n\n// Implementation\nclass Property {\n    get value() {\n        return this._value;\n    }\n    constructor(metadata = {}) {\n        this.status = new Status_1.Status();\n        this._value = null;\n        this.metadata = {};\n        this.changed = new Event_1.Event();\n        this.updated = new Event_1.Event();\n        this.requested = new Event_1.Event();\n        this.metadata = metadata;\n        this.changed.on((data) => this.onChanged(data));\n    }\n    command(value) {\n        this.requested.trigger(value);\n    }\n    set value(value) {\n        const oldValue = this.value;\n        if (this.value !== value) {\n            this.value = value;\n            try {\n                this.changed.trigger({ source: this, from: oldValue, to: value });\n            }\n            catch (e) {\n            }\n        }\n        this.updated.trigger({ source: this, from: oldValue, to: value });\n    }\n    onChanged(data) {\n        this.status.green('' + data.to);\n    }\n}\nclass PropertyGroup extends Property {\n    constructor(properties = {}) {\n        super();\n        this.debounceMillis = 50;\n        this.debounceTimer = null;\n        for (const key in properties) {\n            this.add(key, properties[key]);\n        }\n    }\n    add(name, property) {\n        this[name] = property;\n        property.updated.on((_) => this.updated.trigger({ source: this, from: this.value, to: this.value }));\n        property.changed.on((data) => {\n            if (this.debounceTimer)\n                clearTimeout(this.debounceTimer);\n            this.debounceTimer = setTimeout(() => {\n                const newValue = Object.assign({}, this.value);\n                newValue[name] = data.to;\n                this.value = newValue;\n            }, this.debounceMillis);\n        });\n    }\n    onChanged(data) {\n        this.status.green();\n    }\n}\n\n\n// Exports\n$.register(\"core.Property\", Property);\n$.register(\"core.PropertyGroup\", PropertyGroup);",
+		"x": 200,
+		"y": 240,
+		"z": "5cf05314-91d6-4057-8d3a-8346221bd1f4",
+		"libs": [],
+		"wires": [],
+		"outputs": 0,
+		"noerr": 0,
+		"initialize": "",
+		"finalize": ""
+	},
+	{
+		"id": "f36fc6ee-394e-4620-914f-3bd0b09da752",
+		"name": "Status",
+		"type": "function",
+		"func": "const $ = global.get(\"registry\");\n\n// Dependencies\nconst Event_1 = { Event: await $.get(\"core.Event\") };\n\n// Implementation\nclass Status {\n    constructor() {\n        this._value = { shape: 'dot', fill: 'green', text: '' };\n        this.changed = new Event_1.Event();\n    }\n    get value() {\n        return this._value;\n    }\n    set(value) {\n        this._value = value;\n        this.changed.trigger(value);\n    }\n    green(text = '') {\n        this.set({ shape: 'dot', fill: 'green', text: text });\n    }\n    yellow(text = '') {\n        this.set({ shape: 'dot', fill: 'yellow', text: text });\n    }\n    red(text = '') {\n        this.set({ shape: 'ring', fill: 'red', text: text });\n    }\n    clear() {\n        this.set({ shape: '', fill: '', text: '' });\n    }\n}\n\n\n// Exports\n$.register(\"core.Status\", Status);",
+		"x": 200,
+		"y": 280,
+		"z": "5cf05314-91d6-4057-8d3a-8346221bd1f4",
+		"libs": [],
+		"wires": [],
+		"outputs": 0,
+		"noerr": 0,
+		"initialize": "",
+		"finalize": ""
+	},
+	{
+		"id": "4078510b-b1e7-48ae-bb13-a77234d34b7c",
+		"name": "Module",
+		"type": "function",
+		"func": "const $ = global.get(\"registry\");\nlet Argument = await $.get('core.Argument');\nlet ArgumentMap = await $.get('core.ArgumentMap');\nlet Base = await $.get('core.Base');\nlet Event = await $.get('core.Event');\nlet Node = await $.get('core.Node');\nlet Property = await $.get('core.Property');\nlet PropertyGroup = await $.get('core.PropertyGroup');\nlet Status = await $.get('core.Status');\nclass core {\n  static Argument = Argument;\n  static ArgumentMap = ArgumentMap;\n  static Base = Base;\n  static Event = Event;\n  static Node = Node;\n  static Property = Property;\n  static PropertyGroup = PropertyGroup;\n  static Status = Status;\n}\n\n$.register('core.*', core);",
+		"x": 200,
+		"y": 40,
+		"z": "5cf05314-91d6-4057-8d3a-8346221bd1f4",
+		"libs": [],
+		"wires": [],
+		"outputs": 0,
+		"noerr": 0,
+		"initialize": "",
+		"finalize": ""
+	}
+]
