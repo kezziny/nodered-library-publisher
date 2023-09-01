@@ -46,6 +46,8 @@ export class Stream<T> implements IPublisher<T> {
         if (this._changed === null) {
             this._changed = this.createStream<T>();
             this._changed.publish(this._value);
+            this.onEmpty(() => this._changed.publish(undefined));
+            this.onError(e => this._changed.publish(e));
             this.subscribe(value => {
                 if (value !== this._changed.value) {
                     this._changed.publish(value);
@@ -72,6 +74,8 @@ export class Stream<T> implements IPublisher<T> {
 
     public map<U>(transformation: ((value: T) => U)): Stream<U> {
         let publisher = this.createStream<U>();
+        this.onError(e => publisher.publish(e));
+        this.onEmpty(() => publisher.publish(undefined));
         this.subscribe(event => {
             publisher.publish(transformation(event));
         });
@@ -80,6 +84,8 @@ export class Stream<T> implements IPublisher<T> {
 
     public filter(filter: ((value: T) => Boolean)): Stream<T> {
         let publisher = this.createStream<T>();
+        this.onError(e => publisher.publish(e));
+        this.onEmpty(() => publisher.publish(undefined));
         this.subscribe(value => {
             if (filter(value))
                 publisher.publish(value);
@@ -89,6 +95,8 @@ export class Stream<T> implements IPublisher<T> {
 
     public noPublishSince(ms: number): Stream<T> {
         let publisher = this.createStream<T>();
+        this.onError(e => publisher.publish(e));
+        this.onEmpty(() => publisher.publish(undefined));
         let timeout = null;
         this.subscribe(value => {
             if (timeout !== null) {

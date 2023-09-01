@@ -1,4 +1,6 @@
 const each = require("jest-each").default;
+jest.useFakeTimers();
+
 import { Stream } from './Stream';
 
 describe('Publisher', () => {
@@ -7,6 +9,7 @@ describe('Publisher', () => {
 
     beforeEach(() => {
         source = new Stream<string>();
+        result = undefined;
     });
 
     it('publish', async () => {
@@ -19,15 +22,16 @@ describe('Publisher', () => {
     });
 
     it('publish empty', async () => {
-        source.onEmpty(() => result = "ok");
+        source.onEmpty(() => result = "empty");
 
         source.publish("prev");
         expect(source.value).toBe("prev");
 
         source.publish(undefined);
+    
 
         expect(source.value).toBe(undefined);
-        expect(result).toBe("ok");
+        expect(result).toBe("empty");
     });
 
     it('publish error', async () => {
@@ -84,5 +88,182 @@ describe('Publisher', () => {
                 expect(result).toBe("error");
             });
           })
+    });
+
+    describe('changed', () => {
+        let changed = null;
+        let counter;
+
+        beforeEach(() => {
+            changed = source.changed();
+            counter = 0;
+        })
+
+        it('publish on parent', async () => {
+            changed.subscribe(_ => counter++);
+
+            source.publish("ok");
+
+            expect(changed.value).toBe("ok");
+            expect(counter).toBe(1);
+
+            source.publish("ok");
+
+            expect(changed.value).toBe("ok");
+            expect(counter).toBe(1);
+        });
+
+        it('publish empty on parent', async () => {
+            changed.subscribe(_ => counter++);
+            changed.onEmpty(() => result = "empty");
+
+            source.publish("ok");
+            expect(changed.value).toBe("ok");
+            expect(counter).toBe(1);
+
+            source.publish(undefined);
+            expect(changed.value).toBe(undefined);
+            expect(result).toBe("empty");
+            expect(counter).toBe(1);
+        });
+
+        it('publish error on parent', async () => {
+            changed.subscribe(_ => counter++);
+            changed.onError(_ => result = "error");
+
+            source.publish("ok");
+            expect(changed.value).toBe("ok");
+            expect(counter).toBe(1);
+
+            source.publish(new Error());
+            expect(changed.value).toBe("ok");
+            expect(result).toBe("error");
+            expect(counter).toBe(1);
+        });
+    });
+
+    describe('map', () => {
+        let publisher = null;
+
+        beforeEach(() => {
+            publisher = source.map(v => v + v);
+        })
+
+        it('publish on parent', async () => {
+            publisher.subscribe(i => result = i);
+
+            source.publish("ok");
+
+            expect(publisher.value).toBe("okok");
+            expect(result).toBe("okok");
+        });
+
+        it('publish empty on parent', async () => {
+            publisher.onEmpty(() => result = "empty");
+
+            source.publish("ok");
+            expect(publisher.value).toBe("okok");
+
+            source.publish(undefined);
+            expect(publisher.value).toBe(undefined);
+            expect(result).toBe("empty");
+        });
+
+        it('publish error on parent', async () => {
+            publisher.onError(_ => result = "error");
+
+            source.publish("ok");
+            expect(publisher.value).toBe("okok");
+
+            source.publish(new Error());
+            expect(publisher.value).toBe("okok");
+            expect(result).toBe("error");
+        });
+    });
+
+    describe('filter', () => {
+        let publisher = null;
+
+        beforeEach(() => {
+            publisher = source.filter(v => v === "ok");
+        })
+
+        it('publish on parent', async () => {
+            publisher.subscribe(i => result = i);
+
+            source.publish("ok");
+
+            expect(publisher.value).toBe("ok");
+            expect(result).toBe("ok");
+
+            source.publish("nok");
+
+            expect(publisher.value).toBe("ok");
+            expect(result).toBe("ok");
+        });
+
+        it('publish empty on parent', async () => {
+            publisher.onEmpty(() => result = "empty");
+
+            source.publish("ok");
+            expect(publisher.value).toBe("ok");
+
+            source.publish(undefined);
+            expect(publisher.value).toBe(undefined);
+            expect(result).toBe("empty");
+        });
+
+        it('publish error on parent', async () => {
+            publisher.onError(_ => result = "error");
+
+            source.publish("ok");
+            expect(publisher.value).toBe("ok");
+
+            source.publish(new Error());
+            expect(publisher.value).toBe("ok");
+            expect(result).toBe("error");
+        });
+    });
+
+    describe('noPublishSince', () => {
+        let publisher = null;
+
+        beforeEach(() => {
+            publisher = source.noPublishSince(100);
+        })
+
+        it('publish on parent', async () => {
+            publisher.subscribe(i => result = i);
+
+            source.publish("ok");
+            expect(publisher.value).toBe(undefined);
+            expect(result).toBe(undefined);
+            
+            jest.runAllTimers();
+            expect(publisher.value).toBe("ok");
+            expect(result).toBe("ok");
+        });
+
+        it('publish empty on parent', async () => {
+            publisher.onEmpty(() => result = "empty");
+
+            source.publish(undefined);
+            expect(publisher.value).toBe(undefined);
+            expect(result).toBe("empty");
+        });
+
+        it('publish error on parent', async () => {
+            publisher.onError(_ => result = "error");
+
+            source.publish("ok");
+            expect(publisher.value).toBe(undefined);
+            
+            jest.runAllTimers();
+            expect(publisher.value).toBe("ok");
+
+            source.publish(new Error());
+            expect(publisher.value).toBe("ok");
+            expect(result).toBe("error");
+        });
     });
 });
