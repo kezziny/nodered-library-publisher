@@ -1,10 +1,7 @@
-import {PublishEventArgs} from "./PublishEventArgs";
-import { IPublisher } from "./IPublisher";
+import { IStream } from "./IStream";
 
-export type Subscriber<T> = (value: T) => void
-
-export class Stream<T> implements IPublisher<T> {
-    private _onNext:Subscriber<T>[] = [];
+export class Stream<T> implements IStream<T> {
+    private _onNext:((value: T) => void)[] = [];
     private _onEmpty:(() => void)[] = [];
     private _onError:((error: Error) => void)[] = [];
     private _value:T = undefined;
@@ -29,7 +26,7 @@ export class Stream<T> implements IPublisher<T> {
         }
     }
 
-    public subscribe(subscriber: Subscriber<T>) {
+    public subscribe(subscriber: (value: T) => void) {
         this._onNext.push(subscriber);
     }
 
