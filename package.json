@@ -1,16 +1,11 @@
 {
-  "name": "@kezziny/nodered-registry-core",
+  "name": "@kezziny/nodered-library-publisher",
   "version": "0.0.1",
   "description": "",
   "author": "",
   "license": "UNLICENSED",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "node-red": {
-    "name": "Core",
-    "module": "core",
-    "uuid": "5cf05314-91d6-4057-8d3a-8346221bd1f4"
-  },
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\"",
